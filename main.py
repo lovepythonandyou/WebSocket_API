@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from langchain.chains.conversation.base import ConversationChain
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_openai import ChatOpenAI
 from starlette.templating import Jinja2Templates
 
@@ -17,10 +17,45 @@ templates = Jinja2Templates(directory="templates")
 llm = ChatOpenAI()
 output_parser = StrOutputParser()
 
+
+# Функция для получения истории сообщений
+def get_last_message_history():
+    responses = []
+
+    # Открываем файл и считываем строки
+    with open('chat_log.csv', 'r', encoding='cp1251') as file:
+        reader = csv.DictReader(file)
+
+        # Проходимся по строкам в обратном порядке и добавляем значения столбца "ответ"
+        for row in reversed(list(reader)):
+            responses.append(row['ответ'])
+            if len(responses) == 3:
+                break
+
+    # Соединяем последние ответы в один текст
+    last_message = '\n'.join(responses[::-1])
+    return last_message
+
+
+res_mes = get_last_message_history()
+
+daily_context = res_mes
+
+template = """
+
+Here is some context about today: {daily_context}
+
+Current conversation:
+{history}
+user: {input}
+AI:"""
+PROMPT = PromptTemplate.from_template(template).partial(daily_context=daily_context)
+
 conversation = ConversationChain(
+    prompt=PROMPT,
     llm=llm,
     verbose=True,
-    memory=ConversationBufferWindowMemory(k=10)
+    memory=ConversationBufferWindowMemory(k=3)
 )
 
 
